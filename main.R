@@ -5,14 +5,14 @@ library(tidyverse)
 library(readxl)
 library(scales)
 library(glue)
-# library(extrafont)
+library(extrafont)
 library(ggh4x)
 loadfonts(device = "win", quiet = TRUE) 
 
 # Variables ---------------------------------------------------------------
 
-scope_categ <- c("Zero Touch", "Enrichment") # c("Enrichment", "Zero Touch")
-scope_gbu <- c("GEM", "SPC", "CHC") # c("GEM", "SPC", "CHC")
+scope_categ <- c("Zero Touch") # c("Enrichment", "Zero Touch")
+scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
 
 sceye_extract <- file.choose()
@@ -65,7 +65,7 @@ df_extended <-
 # group by maret/gmid and calculate spa
 
 spa_hits <- df_extended %>% group_by(Country, GMID, Date, Asset, REGION, GBU, Franchise) %>%
-  filter(GBU == "SPC", 
+  filter(GBU == "GEM", 
          REGION == "EUROPE", 
          MAPE_ExcludeRuptures == "No Impact") %>%
   summarise(SPA = sum(Vol)/sum(Final_fcst)) %>% 
