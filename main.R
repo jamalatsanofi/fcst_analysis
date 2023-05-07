@@ -20,9 +20,23 @@ scope_categ <- c("Zero Touch") # c("Enrichment", "Zero Touch")
 scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
 
+
 sceye_extract <- "22-10_23-03_3GBU.xlsx"
 # sceye_extract <- file.choose()
 options(digits = 2)
+
+# Distribution models
+## Note: might need to quantify the volume in distribution model
+nbm_markets <- c(
+  "Afghanistan", "Angola", "Armenia", "Azerbaijan", "Bangladesh",
+  "Belarus", "Bosnia", "Cambodia", "Central America",
+  "Chile", "CIS Countries CHC", "Ecuador", "Estonia",
+  "Georgia", "Kazakhstan", "Kyrgyzstan", "Latvia",
+  "Lithuania", "Macedonia", "Malta", "Moldova", "NBM Eurasia",
+  "NBM Europe", "Nigeria", "Pakistan", "Paraguay",
+  "Sub Sahara Africa", "Tajikistan", "Turkmenistan",
+  "Uruguay", "Uzbekistan"
+)
 
 # Data loading and cleansing ----------------------------------------------
 
@@ -72,7 +86,20 @@ df_extended <- df_sku %>%
     Vol / Final_fcst < (1 - bias_threshold) ~ "Overforecast",
     Vol / Final_fcst > (1 + bias_threshold) ~ "Underforecast",
     TRUE ~ "Unbiased"
-  ))
+  )) %>% 
+# add some info on enrichment Direction and Size
+  mutate(Enrichment_Direction = case_when(
+    Stat_fcst == 0           ~ "No Baseline",
+    Final_fcst > Stat_fcst   ~ "Up",
+    Final_fcst < Final_fcst  ~ "Down",
+    T ~ "None")) %>% 
+  mutate(Enrichment_Size = case_when(
+    abs((Final_fcst - Stat_fcst)/Stat_fcst) > 0.15 ~ "High",
+    abs((Final_fcst - Stat_fcst)/Stat_fcst) > 0.07 ~ "Med",
+    abs((Final_fcst - Stat_fcst)/Stat_fcst) > 0.02 ~ "Low",
+    abs((Final_fcst - Stat_fcst)/Stat_fcst) > 0.00 ~ "Insignificant",
+    T ~ "Error"
+)) 
 
 # forecast_hits plot ------------------------------------------------------
 
@@ -123,24 +150,12 @@ spa_hits %>%
 
 # Market view - 0touch analysis -------------------------------------------
 
-market_view <- df_extended
-
 # keep the scope defined in variables
-market_view <- market_view %>% filter(GBU %in% scope_gbu &
-                                        Old_z_touch_segm %in% scope_categ)
-
-## Note: might need to quantify the volume in distribution model
-nbm_markets <- c(
-  "Afghanistan", "Armenia", "Azerbaijan", "Bangladesh",
-  "Belarus", "Bosnia", "Cambodia", "Central", "America",
-  "Chile", "CIS Countries CHC", "Ecuador", "Estonia",
-  "Georgia", "Kazakhstan", "Kyrgyzstan", "Latvia",
-  "Lithuania", "Macedonia", "Malta", "Moldova", "NBM Eurasia",
-  "NBM Europe", "Nigeria", "Pakistan", "Paraguay",
-  "Sub Sahara Africa", "Tajikistan", "Turkmenistan",
-  "Uruguay", "Uzbekistan"
-)
-market_view <- market_view %>% filter(!Country %in% nbm_markets)
+market_view <- df_extended %>% 
+  filter(
+    GBU %in% scope_gbu &
+    Old_z_touch_segm %in% scope_categ) %>% 
+  filter(!Country %in% nbm_markets)
 
 # Before filtering out where no stat is available, some figures
 # SKU
@@ -167,7 +182,6 @@ vol_stat_coverage <- round(vol_with_stat / vol_in_scope, 4)
 # Filter out where no stat forecast is available
 market_view <- market_view %>% filter(Vol_w_stat > 0)
 
-
 # remove direct Rupture and Recovery impact
 market_view <- market_view %>% filter(MAPE_ExcludeRuptures == "No Impact")
 
@@ -185,18 +199,18 @@ market_view <- market_view %>%
 adherence_sku <- round(nrow(market_view[market_view$Enrichment_vol == 0,]) / nrow(market_view),2)
 # adherence_vol 
 
-# add some info on enrichment Direction and Size
-market_view <- market_view %>% mutate(Enrichment_Direction = case_when(
-  Enrichment_vol > 0 ~ "Up",
-  Enrichment_vol < 0 ~ "Down",
-  T ~ ""
-)) %>% mutate(Enrichment_Size = case_when(
-  abs(Enrichment_vol/Stat_fcst) > .15 ~ "High",
-  abs(Enrichment_vol/Stat_fcst) > .07 ~ "Med",
-  abs(Enrichment_vol/Stat_fcst) > .02 ~ "Low",
-  abs(Enrichment_vol/Stat_fcst) > 0 ~ "Insignificant",
-  T ~ ""
-)) 
+# # add some info on enrichment Direction and Size
+# market_view <- market_view %>% mutate(Enrichment_Direction = case_when(
+#   Enrichment_vol > 0 ~ "Up",
+#   Enrichment_vol < 0 ~ "Down",
+#   T ~ ""
+# )) %>% mutate(Enrichment_Size = case_when(
+#   abs(Enrichment_vol/Stat_fcst) > .15 ~ "High",
+#   abs(Enrichment_vol/Stat_fcst) > .07 ~ "Med",
+#   abs(Enrichment_vol/Stat_fcst) > .02 ~ "Low",
+#   abs(Enrichment_vol/Stat_fcst) > 0 ~ "Insignificant",
+#   T ~ ""
+# )) 
 
 # add error data to calculate MAPE & SPA later
 market_view <- market_view %>% mutate(er_stat  = Stat_fcst - Vol_w_stat, 
