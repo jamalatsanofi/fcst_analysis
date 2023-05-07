@@ -20,12 +20,8 @@ scope_categ <- c("Zero Touch") # c("Enrichment", "Zero Touch")
 scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
 
-<<<<<<< HEAD
 sceye_extract <- "22-10_23-03_3GBU.xlsx"
 # sceye_extract <- file.choose()
-=======
-sceye_extract <- file.choose()
->>>>>>> 183f9e625997e6818d513c4598d4d0f93b28d282
 options(digits = 2)
 
 # Data loading and cleansing ----------------------------------------------
@@ -69,11 +65,7 @@ df_sku <- df_sku %>% mutate_at(c("Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst")
 
 # add info ----------------------------------------------------------------
 
-<<<<<<< HEAD
-# Over/Under forecasting. On final forecast vs sales in volume
-=======
 # Over/Underforecasting. On final forecast vs sales in volume
->>>>>>> 183f9e625997e6818d513c4598d4d0f93b28d282
 
 df_extended <- df_sku %>%
   mutate(Bias = case_when(
@@ -82,28 +74,29 @@ df_extended <- df_sku %>%
     TRUE ~ "Unbiased"
   ))
 
-# group by maret/gmid and calculate spa
+# forecast_hits plot ------------------------------------------------------
 
 spa_hits <- df_extended %>%
   group_by(Country, GMID, Date, Asset, REGION, GBU, Franchise) %>%
   filter(
     GBU == "GEM",
     REGION == "EUROPE",
+    Country %in% c("France", "Germany", "Italy", "Spain", "United Kingdom"),
     MAPE_ExcludeRuptures == "No Impact"
   ) %>%
   summarise(SPA = sum(Vol) / sum(Final_fcst)) %>%
-  filter(!is.na(SPA) & !is.infinite(SPA)) %>%
+  filter(!is.na(SPA) & !is.infinite(SPA))
+
+spa_hits %>% 
   ggplot(aes(x = SPA, fill = case_when(GBU == "SPC" ~ Franchise, GBU == "GEM" ~ Asset))) +
   geom_vline(aes(xintercept = 1),
              color = "grey80"
   ) +
   geom_histogram(
     position = "identity",
-    # colour="#7A00E6",
-    # fill = "#7A00E6",
-    alpha = 0.2, binwidth = 0.1
+    alpha = 0.2, binwidth = 0.05
   ) +
-  scale_x_continuous(limits = c(-.1, 2.1)) +
+  coord_cartesian(xlim = c(-.1, 2.1)) +
   theme_light() +
   stat_theodensity(aes(
     y = stat(count) * 0.1,
@@ -121,16 +114,16 @@ spa_hits <- df_extended %>%
   ) +
   ggtitle("Distribution of Forecast hits SPA", "GenMed Oct22 to Mar23") +
   ylab("Frequency of hit") +
-  xlab("SPA hit")
-# guides(fill=guide_legend(title="Segment"))
+  xlab("SPA hit") +
+  labs(fill = NULL, color = NULL)
+  # guides(fill=guide_legend(title="Segment"))
+  # bbc_style()
 
-
-spa_hits + labs(fill = NULL, color = NULL)
 
 
 # Market view - 0touch analysis -------------------------------------------
 
-market_view <- df_sku
+market_view <- df_extended
 
 # keep the scope defined in variables
 market_view <- market_view %>% filter(GBU %in% scope_gbu &
