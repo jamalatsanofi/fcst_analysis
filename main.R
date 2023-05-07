@@ -20,8 +20,12 @@ scope_categ <- c("Zero Touch") # c("Enrichment", "Zero Touch")
 scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
 
+<<<<<<< HEAD
 sceye_extract <- "22-10_23-03_3GBU.xlsx"
 # sceye_extract <- file.choose()
+=======
+sceye_extract <- file.choose()
+>>>>>>> 183f9e625997e6818d513c4598d4d0f93b28d282
 options(digits = 2)
 
 # Data loading and cleansing ----------------------------------------------
@@ -65,7 +69,11 @@ df_sku <- df_sku %>% mutate_at(c("Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst")
 
 # add info ----------------------------------------------------------------
 
+<<<<<<< HEAD
 # Over/Under forecasting. On final forecast vs sales in volume
+=======
+# Over/Underforecasting. On final forecast vs sales in volume
+>>>>>>> 183f9e625997e6818d513c4598d4d0f93b28d282
 
 df_extended <- df_sku %>%
   mutate(Bias = case_when(
