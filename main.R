@@ -53,18 +53,14 @@ top10_markets <- c("United States", "Germany", "France", "United Kingdom", "Ital
 # top20_products
 
 # GEM KEY MARKETS
-market_df <- market_df %>%
-  filter(Market %in% c(
-    "FRANCE",
-    "ITALY",
-    "SPAIN", "PORTUGAL",
-    "GERMANY", "AUSTRIA", "SWITZERLAND",
-    "UNITED KINGDOM", "IRELAND",
-    "BRAZIL", "RUSSIA", "ALGERIA",
-    "TURKEY",
-    "UNITED ARAB EMIRATES", "YEMEN", "OMAN", "SAUDI ARABIA", "QATAR", "KUWAIT", "BAHRAIN"
-  )) %>%
-  filter(Asset == "Global Core Assets")
+gem_key_markets <- c(
+    "France", "Italy", "Spain", "Portugal",
+    "Germany", "Austria", "Switzerland",
+    "United Kingdom", "Ireland",
+    "Brazil", "Russia", "Algeria",
+    "Turkey",
+    "United Arab Emirates", "Yemen", "Oman", "Saudi Arabia", "Qatar", "Kuwait", "Bahrain"
+  )
 
 
 # Data loading and cleansing ----------------------------------------------
@@ -281,7 +277,7 @@ market_fva <- market_fva %>%
 
 
 ## Market View Plot ----
-## Market view
+### FVA wMAPE lollipop plot ----
 
 #### prepare Legend
 # Am I changing years?
@@ -322,16 +318,18 @@ market_90_fva_mape_base_plot %>% ggplot(aes(x=reorder(Country, -FVA_mape_pp), y=
 
 
 
-# Flipped
+### FVA Volume bar plot ---- 
 # base_plot <- 
-market_fva %>% 
-  filter(FVA %in% c("Imp", "Wor")) %>% 
+temp_impwor <- market_fva %>% 
+  filter(FVA %in% c("Imp", "Wor"))
+temp_net    <- market_fva %>% 
+  filter(FVA == "Net")
   ggplot() +
-  geom_col(
+  geom_col(temp_impwor,
     aes(
       x = reorder(Old_z_touch_segm, (FVA_NetVol)),
       y = FVA_Vol,
-      fill = FVA,
+      fill = filter(FVA != "Net"),
       # fill = case_when(
       #   FVA_NetVol >= 0 ~ "Improving",
       #   FVA_NetVol < 0 ~ "Worsening",
@@ -339,7 +337,7 @@ market_fva %>%
       # ),
       alpha = Old_z_touch_segm
     ),
-    position = "stack", width = .95
+    position = "dodge", width = .95
   ) +
   scale_fill_manual(values = c("#ED6C4E", "#7A00E6")) +
   scale_alpha_manual(values = c(1, 0.4)) +
@@ -348,7 +346,7 @@ market_fva %>%
              ncol = 1,
              strip.position = "left"
   ) +
-  geom_point(
+  geom_point(temp_net,
     aes(
       x = Old_z_touch_segm,
       y = FVA_NetVol,

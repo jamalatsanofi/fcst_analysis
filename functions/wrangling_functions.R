@@ -32,14 +32,14 @@ fun_reload_sceye_extract <- function() {
                        ) 
   )
   # Rename columns
-  colnames(df_sku) <- c(
+  colnames(df_sku) <<- c(
     "GBU", "Country", "Date", "GMID", "P_Fam", 
     "Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst",
     "Old_z_touch_segm", "Franchise", "Asset", "MAPE_ExcludeRuptures", "REGION"
   )
   
   # coerce integers (not done correctly w/ read_excel), datetime to date, Cleanse P_Fam
-  df_sku <- df_sku %>% 
+  df_sku <<- df_sku %>% 
     mutate_at(c("Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst"), as.integer) %>% 
     mutate(Date = as.Date(Date)) %>% 
     mutate(P_Fam = str_replace(P_Fam, "_.*", ""))
