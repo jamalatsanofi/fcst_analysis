@@ -1,3 +1,13 @@
+# Description -------------------------------------------------------------
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+# 
+# 
+# 
+# 
+# 
+# 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
 
 # Libraries and source files ----------------------------------------------
 
@@ -12,6 +22,7 @@ library(ggallin)   # to plot negative values on log scale
 loadfonts(device = "win", quiet = TRUE)
 
 source("functions/plot_functions.R")
+source("functions/wrangling_functions.R")
 
 
 # Variables ---------------------------------------------------------------
@@ -21,66 +32,49 @@ scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
 
 
-sceye_extract <- "22-10_23-03_3GBU.xlsx"
-# sceye_extract <- file.choose()
-options(digits = 2)
+# sceye_extract <- "22-10_23-03_3GBU.xlsx"
+# sceye_extract <- file.choose() 
+
 
 # Distribution models
 ## Note: might need to quantify the volume in distribution model
-nbm_markets <- c(
-  "Afghanistan", "Angola", "Armenia", "Azerbaijan", "Bangladesh",
+nbm_markets <- c("Afghanistan", "Angola", "Armenia", "Azerbaijan", "Bangladesh",
   "Belarus", "Bosnia", "Cambodia", "Central America",
   "Chile", "CIS Countries CHC", "Ecuador", "Estonia",
   "Georgia", "Kazakhstan", "Kyrgyzstan", "Latvia",
   "Lithuania", "Macedonia", "Malta", "Moldova", "NBM Eurasia",
   "NBM Europe", "Nigeria", "Pakistan", "Paraguay",
   "Sub Sahara Africa", "Tajikistan", "Turkmenistan",
-  "Uruguay", "Uzbekistan"
-)
+  "Uruguay", "Uzbekistan")
+
+top10_markets <- c("United States", "Germany", "France", "United Kingdom", "Italy", 
+            "Spain", "China", "Japan", "Russia", "Brazil")
+
+# top20_products
+
+# GEM KEY MARKETS
+market_df <- market_df %>%
+  filter(Market %in% c(
+    "FRANCE",
+    "ITALY",
+    "SPAIN", "PORTUGAL",
+    "GERMANY", "AUSTRIA", "SWITZERLAND",
+    "UNITED KINGDOM", "IRELAND",
+    "BRAZIL", "RUSSIA", "ALGERIA",
+    "TURKEY",
+    "UNITED ARAB EMIRATES", "YEMEN", "OMAN", "SAUDI ARABIA", "QATAR", "KUWAIT", "BAHRAIN"
+  )) %>%
+  filter(Asset == "Global Core Assets")
+
 
 # Data loading and cleansing ----------------------------------------------
-
-# File read into df_sku
-
-df_sku <- read_excel(sceye_extract,
-                     col_types = c(
-                       "text", # GBU
-                       "text", # Country
-                       "date", # DATE
-                       "text", # GMID
-                       "text", # P_Fam
-                       "text", # * Sales_with_Stat_Fcst *
-                       "text", # * Sales *
-                       "text", # * Statistical Forecast *
-                       "text", # * Final Forecast *
-                       "text", # GBU_Segmentation
-                       "text", # FRANCHISE
-                       "text", # asset_segmentation
-                       "text", # MAPE_ExcludeRuptures
-                       "text"  # REGION
-                     ) 
-)
-# Rename columns
-colnames(df_sku) <- c(
-  "GBU", "Country", "Date", "GMID", "P_Fam", "Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst",
-  "Old_z_touch_segm", "Franchise", "Asset", "MAPE_ExcludeRuptures", "REGION"
-)
-
-# coerce integers (not done correctly w/ read_excel), datetime to date, Cleanse P_Fam
-df_sku <- df_sku %>% mutate_at(c("Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst"), as.integer) %>% 
-  mutate(Date = as.Date(Date)) %>% 
-  mutate(P_Fam = str_replace(P_Fam, "_.*", ""))
+fun_open_sceye_extract()
+fun_reload_sceye_extract()
 
 
-#
-#
-# df_sku: raw extract from SCEYE
+# Dataset extension ----
 
-
-# add info ----------------------------------------------------------------
-
-# Over/Underforecasting. On final forecast vs sales in volume
-
+# Over/Under forecasting. On final forecast vs sales in volume
 df_extended <- df_sku %>%
   mutate(Bias = case_when(
     Vol / Final_fcst < (1 - bias_threshold) ~ "Overforecast",
@@ -101,8 +95,9 @@ df_extended <- df_sku %>%
     T ~ "Error"
 )) 
 
-# forecast_hits plot ------------------------------------------------------
+# Forecast hits -----------------------------------------------------------
 
+## Data preparation (spa_hits) ----
 spa_hits <- df_extended %>%
   group_by(Country, GMID, Date, Asset, REGION, GBU, Franchise) %>%
   filter(
@@ -114,6 +109,7 @@ spa_hits <- df_extended %>%
   summarise(SPA = sum(Vol) / sum(Final_fcst)) %>%
   filter(!is.na(SPA) & !is.infinite(SPA))
 
+## Forecast hits Plot ----
 spa_hits %>% 
   ggplot(aes(x = SPA, fill = case_when(GBU == "SPC" ~ Franchise, GBU == "GEM" ~ Asset))) +
   geom_vline(aes(xintercept = 1),
@@ -150,6 +146,7 @@ spa_hits %>%
 
 # Market view - 0touch analysis -------------------------------------------
 
+## Data Preparation (market_view) ----
 # keep the scope defined in variables
 market_view <- df_extended %>% 
   filter(
@@ -185,12 +182,6 @@ market_view <- market_view %>% filter(Vol_w_stat > 0)
 # remove direct Rupture and Recovery impact
 market_view <- market_view %>% filter(MAPE_ExcludeRuptures == "No Impact")
 
-# calculate the enrichment in volume (/!\, Vol_w_stat != Vol. to take into consideration if delta is high)
-# check delta
-market_view_top90 %>%
-  mutate(Delta = Vol_w_stat - Vol) %>%
-  arrange(Delta) %>%
-  filter(Delta != 0)
 # Add enrichment volume
 market_view <- market_view %>% 
   mutate(Enrichment_vol = Final_fcst - Stat_fcst)
@@ -199,18 +190,6 @@ market_view <- market_view %>%
 adherence_sku <- round(nrow(market_view[market_view$Enrichment_vol == 0,]) / nrow(market_view),2)
 # adherence_vol 
 
-# # add some info on enrichment Direction and Size
-# market_view <- market_view %>% mutate(Enrichment_Direction = case_when(
-#   Enrichment_vol > 0 ~ "Up",
-#   Enrichment_vol < 0 ~ "Down",
-#   T ~ ""
-# )) %>% mutate(Enrichment_Size = case_when(
-#   abs(Enrichment_vol/Stat_fcst) > .15 ~ "High",
-#   abs(Enrichment_vol/Stat_fcst) > .07 ~ "Med",
-#   abs(Enrichment_vol/Stat_fcst) > .02 ~ "Low",
-#   abs(Enrichment_vol/Stat_fcst) > 0 ~ "Insignificant",
-#   T ~ ""
-# )) 
 
 # add error data to calculate MAPE & SPA later
 market_view <- market_view %>% mutate(er_stat  = Stat_fcst - Vol_w_stat, 
@@ -227,16 +206,7 @@ market_view <- market_view %>% mutate(FVA_Vol = abs_er_stat - abs_er_final,
                                         T ~ "Neutral"
                                       ))
 
-# market_view %>% 
-#   filter(Enrichment_vol != 0) %>%
-#   ggplot(aes(x = Enrichment_Size, y=FVA_Vol, color=Enrichment_Direction)) +
-#   geom_jitter() +
-#   scale_y_continuous(trans = pseudolog10_trans) +
-#   coord_flip()
-
-
-
-
+### Filter top 90% of Vol ----
 # Countries representing top 90% of volume
 top90_vol_market_list <- market_view %>%
   group_by(Country) %>%
@@ -246,22 +216,24 @@ top90_vol_market_list <- market_view %>%
   filter(lag(Vol_w_stat_cum, default = 0) < .9) %>%
   pull(Country)
 
+
 # filter on top90% volume countries
-market_view_top90 <- market_view %>% filter(Country %in% top90_vol_market_list)
+market_view_top90 <- market_view %>% 
+  filter(Country %in% top90_vol_market_list) 
 
 
-market_view_top90_group <- market_view_top90 %>% group_by(GBU, REGION, Country, Old_z_touch_segm, Enrichment_vol)
-
-# market_view %>% mutate(touched = case_when(
-#   Enrichment_vol == 0 ~ F,
-#   T ~ T
-# )) %>% 
-#   group_by(touched) %>% summarise(sum(Vol_w_stat))
-
-# add  enrichment in volume info
+market_view_top90_group <- market_view_top90 %>% 
+  group_by(GBU, REGION, Country, Old_z_touch_segm, Enrichment_vol)
 
 
-# Prepare Plots -----------------------------------------------------------
+# calculate the enrichment in volume (/!\, Vol_w_stat != Vol. to take into consideration if delta is high)
+# check delta
+market_view_top90 %>%
+  mutate(Delta = Vol_w_stat - Vol) %>%
+  arrange(Delta) %>%
+  filter(Delta != 0)
+
+### Prepare Plots ----
 ### Market view
 market_90_fva_mape_base_plot <- market_view_top90 %>% 
   group_by(GBU, REGION, Country, Old_z_touch_segm) %>% 
@@ -308,7 +280,7 @@ market_fva <- market_fva %>%
   rename(FVA_NetVol = FVA_Vol.y) 
 
 
-# Plots -------------------------------------------------------------------
+## Market View Plot ----
 ## Market view
 
 #### prepare Legend
@@ -345,7 +317,7 @@ market_90_fva_mape_base_plot %>% ggplot(aes(x=reorder(Country, -FVA_mape_pp), y=
   theme_minimal()+
   theme(
     legend.position = "bottom"
-  )
+  ) 
 
 
 
@@ -463,35 +435,6 @@ df2 <- df_sku %>% mutate(FVA = ifelse(Enrichment_vol >= 0, "Improving", "Deterio
 market_df <- df2 %>% group_by(Market, FVA, Old_z_touch_segm)
 
 
-
-############################  TOP 10
-market_df <- market_df %>% filter(Market %in% c("FRANCE", "UNITED STATES", "UNITED KINGDOM", "CHINA", "JAPAN", "ITALY", "GERMANY", "SPAIN", "BRAZIL", "RUSSIA"))
-############################
-
-############################  GEM KEY MARKETS
-market_df <- market_df %>%
-  filter(Market %in% c(
-    "FRANCE",
-    "ITALY",
-    "SPAIN", "PORTUGAL",
-    "GERMANY", "AUSTRIA", "SWITZERLAND",
-    "UNITED KINGDOM", "IRELAND",
-    "BRAZIL", "RUSSIA", "ALGERIA",
-    "TURKEY",
-    "UNITED ARAB EMIRATES", "YEMEN", "OMAN", "SAUDI ARABIA", "QATAR", "KUWAIT", "BAHRAIN"
-  )) %>%
-  filter(Asset == "Global Core Assets")
-############################
-
-############################ Same markets as top 90% Market view
-market_df <- market_df %>%
-  filter(Market %in% pull(df_top90, Market))
-
-############################
-
-
-
-
 # Plot --------------------------------------------------------------------
 
 
@@ -530,32 +473,6 @@ base_plot <- ggplot(posneg_fva) +
   )
 
 
-# base_plot <- ggplot(posneg_fva) +
-#   geom_col(aes(x = reorder(Old_z_touch_segm, abs(Enrichment_vol)),
-#                y = Enrichment_vol,
-#                fill = FVA,
-#                alpha = Old_z_touch_segm),
-#            position = "stack", width = .95
-#            ) +
-#   # ifelse(isTRUE(length(scope_categ) == 1), guides(alpha = FALSE), guides()) +
-#   scale_fill_manual(values = c("#ED6C4E", "#7A00E6")) +
-#   scale_alpha_manual(values = c(1, 0.4)) +
-#   # coord_flip() +
-#   facet_wrap(~reorder(str_to_title(Market), -Net_Enrichment),
-#              nrow = 1,
-#              strip.position = "bottom") +
-#   # Add the dot plot for the net_FVA in volume
-#   geom_point(data = net_fva,
-#              aes(x = Old_z_touch_segm,
-#                  y = Enrichment_vol,
-#                  size = abs(Enrichment_vol),
-#              ),
-#              shape = 21, # Can also be the size for additional information, might add clutter
-#              colour = "white",
-#              fill = ifelse(net_fva$Enrichment_vol>0,"#00B050","#6C1C0B"),
-#              size = 5,
-#              show.legend = FALSE
-#   )
 
 base_plot
 
