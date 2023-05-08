@@ -140,7 +140,7 @@ spa_hits %>%
 
 
 
-# Market view - 0touch analysis -------------------------------------------
+# Market view - FVA in Vol and wMAPE --------------------------------------
 
 ## Data Preparation (market_view) ----
 # keep the scope defined in variables
@@ -172,6 +172,7 @@ vol_in_scope <- vol_with_stat + vol_without_stat
 vol_stat_coverage <- round(vol_with_stat / vol_in_scope, 4)
 
 
+
 # Filter out where no stat forecast is available
 market_view <- market_view %>% filter(Vol_w_stat > 0)
 
@@ -198,7 +199,7 @@ market_view <- market_view %>% mutate(er_stat  = Stat_fcst - Vol_w_stat,
 market_view <- market_view %>% mutate(FVA_Vol = abs_er_stat - abs_er_final,
                                       FVA_Perf = case_when(
                                         FVA_Vol > 0 ~ "Improving",
-                                        FVA_Vol < 0 ~ "worsening",
+                                        FVA_Vol < 0 ~ "Worsening",
                                         T ~ "Neutral"
                                       ))
 
@@ -233,7 +234,8 @@ market_view_top90 %>%
 ### Market view
 market_90_fva_mape_base_plot <- market_view_top90 %>% 
   group_by(GBU, REGION, Country, Old_z_touch_segm) %>% 
-  summarise(FVA_mape_pp = round(sum(abs_er_stat-abs_er_final)/sum(Vol_w_stat)*100,2)) %>% 
+  summarise(FVA_mape_pp = round(sum(abs_er_stat-abs_er_final)/sum(Vol_w_stat)*100,2),
+            Vol_w_stat = sum(Vol_w_stat)) %>% 
   arrange(-FVA_mape_pp) %>% 
   mutate(Performance = case_when(
     FVA_mape_pp > 0.5 ~ "Improving",
@@ -254,15 +256,15 @@ abs_fva <- market_view_top90_group %>%
   summarise(FVA_Vol = sum(abs(FVA_Vol)))
 
 imp_fva <- market_view_top90_group %>%
+  filter(FVA_Perf == "Improving") %>% 
   mutate(FVA = "Imp") %>%
   group_by(GBU, REGION, Country, Old_z_touch_segm, FVA) %>% 
-  filter(FVA_Perf == "Improving") %>% 
   summarise(FVA_Vol = sum(Enrichment_vol))
 
 wor_fva <- market_view_top90_group %>%
+  filter(FVA_Perf == "Worsening") %>% 
   mutate(FVA = "Wor") %>%
   group_by(GBU, REGION, Country, Old_z_touch_segm, FVA) %>% 
-  filter(FVA_Perf == "worsening") %>% 
   summarise(FVA_Vol = sum(Enrichment_vol))
 
 market_fva <- bind_rows(net_fva, abs_fva, imp_fva, wor_fva)
@@ -290,42 +292,75 @@ end_date <- format(max(market_view_top90$Date), "%B %Y")
 # legend
 legend_date_scope <- paste(start_date, "to", end_date) 
 
+###
+# Remove KSA (need to check tender topic)
+###
+market_90_fva_mape_base_plot_filtered <- market_90_fva_mape_base_plot %>%  filter(Country != "Saudi Arabia")
 
-market_90_fva_mape_base_plot %>% ggplot(aes(x=reorder(Country, -FVA_mape_pp), y=FVA_mape_pp, label=round(FVA_mape_pp, digits = 1))) + 
+(p1 <- market_90_fva_mape_base_plot_filtered %>% ggplot(aes(x=reorder(Country, -FVA_mape_pp), y=FVA_mape_pp, label=round(FVA_mape_pp, digits = 1))) + 
   geom_segment(aes(y = 0,
                    x = reorder(Country, FVA_mape_pp),
                    yend = FVA_mape_pp,
                    xend = reorder(Country, FVA_mape_pp)),
                color = "grey60",
-               linetype="dashed") +
-  geom_point(stat='identity', aes(col=Performance), size=8)  +
+               linewidth=.5) +
+  geom_point(stat='identity', aes(col=Performance), size=8) +
   scale_color_manual(name="FVA Performance",
                      values = c("Improving"="#7A00E6", "Worsening"="#ED6C4E", "Neutral"="grey60")) +
   geom_text(color="white", size=3) +
-  coord_flip(ylim = c(-15, 15)) + 
-  labs(title="FVA in wMAPE percentage point", 
-       subtitle="Countries cumulating 90% of 0-touch Volume",
-       caption = legend_date_scope) + 
+  coord_flip() + 
   labs(
+  # title="FVA in wMAPE percentage point", 
+  #      subtitle="Countries cumulating 90% of 0-touch Volume",
+  #      caption = legend_date_scope) + 
     x = NULL, 
-    y = "wMAPE pp", 
+    y = "FVA in wMAPE pp", 
   ) +
   theme_minimal()+
   theme(
-    legend.position = "bottom"
+    legend.position = "bottom",
+    panel.grid.major.y = element_line(color = "gray60", linewidth = .2, linetype = "dashed"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_blank()
   ) 
+)
 
-
-
+(p2 <- market_90_fva_mape_base_plot %>% 
+  ggplot(aes(x=reorder(Country, FVA_mape_pp), y=Vol_w_stat)) + 
+    geom_col(fill = "gray50") +
+    coord_flip() + 
+    labs(
+      # title="FVA in wMAPE percentage point",
+      # subtitle="Countries cumulating 90% of 0-touch Volume",
+      # caption = legend_date_scope,
+      x = NULL,
+      y = "Volume"
+      ) +
+    theme_minimal()+
+    scale_y_reverse() + 
+    theme(
+    legend.position = "bottom",
+    panel.grid = element_blank(),
+    axis.text = element_blank()
+  ) 
+)
+p2 + p1 +
+  plot_layout(widths = c(1,2)) #& bbplot::bbc_style()
 
 ### FVA Volume bar plot ---- 
 # base_plot <- 
 temp_impwor <- market_fva %>% 
-  filter(FVA %in% c("Imp", "Wor"))
+  filter(FVA %in% c("Imp", "Wor")) 
 temp_net    <- market_fva %>% 
   filter(FVA == "Net")
+
+ggplot(temp_impwor, aes(Country, FVA_Vol))+
+  geom_col()
+
+
+temp_impwor %>% 
   ggplot() +
-  geom_col(temp_impwor,
+  geom_col(
     aes(
       x = reorder(Old_z_touch_segm, (FVA_NetVol)),
       y = FVA_Vol,
