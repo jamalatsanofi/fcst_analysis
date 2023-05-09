@@ -28,14 +28,15 @@ fun_reload_sceye_extract <- function() {
                          "text", # FRANCHISE
                          "text", # asset_segmentation
                          "text", # MAPE_ExcludeRuptures
-                         "text"  # REGION
+                         "text", # REGION, 
+                         "text"  # Divestment Flag
                        ) 
   )
   # Rename columns
   colnames(df_sku) <<- c(
     "GBU", "Country", "Date", "GMID", "P_Fam", 
     "Vol_w_stat", "Vol", "Stat_fcst", "Final_fcst",
-    "Old_z_touch_segm", "Franchise", "Asset", "MAPE_ExcludeRuptures", "REGION"
+    "Old_z_touch_segm", "Franchise", "Asset", "MAPE_ExcludeRuptures", "REGION", "Divest"
   )
   
   # coerce integers (not done correctly w/ read_excel), datetime to date, Cleanse P_Fam

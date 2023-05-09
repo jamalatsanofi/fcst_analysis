@@ -1,3 +1,24 @@
+# Random plots ----
+
+# BR wMAPE performance by Franchise
+
+df_br <- df_extended %>% filter(Country == "Brazil", GBU == "GEM", Asset == "Foundation Assets") 
+br_mape <- df_br %>% select(!c("GBU", "Country", "Asset", "REGION")) %>% 
+  mutate(er_final = Final_fcst - Vol, 
+         abs_er_final = abs(er_final)) %>% 
+  # filter(MAPE_ExcludeRuptures == "No Impact") %>% 
+  group_by(Date) %>% 
+  summarise(er_final = sum(er_final), abs_er_final = sum(abs_er_final), wMAPE_f = min(sum(abs_er_final)/sum(Vol),1))
+  
+ br_mape %>% ggplot(aes(x = Date, y = wMAPE_f, label = scales::percent(wMAPE_f))) +
+   geom_line() +
+   geom_point() + 
+   scale_y_continuous(labels = scales::percent) +
+   geom_text() +
+   bbplot::bbc_style()
+  
+
+
 # grouping by market ---------------------------------------------------------------
 
 # Copy ray data from df_sku
