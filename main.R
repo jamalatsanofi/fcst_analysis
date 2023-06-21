@@ -17,7 +17,7 @@ library(glue)
 library(extrafont)
 library(ggh4x)
 library(ggallin)   # to plot negative values on log scale
-loadfonts(device = "win", quiet = TRUE)
+# loadfonts(device = "win", quiet = TRUE)
 
 source("functions/plot_functions.R")
 source("functions/wrangling_functions.R")
@@ -25,12 +25,12 @@ source("functions/wrangling_functions.R")
 
 # Variables ---------------------------------------------------------------
 
-Sys.setlocale("LC_TIME", "English")
+# Sys.setlocale("LC_TIME", "English")
 scope_categ <- c("Zero Touch") # c("Enrichment", "Zero Touch")
 scope_gbu <- c("GEM") # c("GEM", "SPC", "CHC")
 bias_threshold <- .1
-scope_start_date <- as.Date("2022-07-01")
-special_country_filter <- c("Saudi Arabia")
+scope_start_date <- as.Date("2023-01-01")
+special_country_filter <- c("")
 
 # Distribution models
 ## Note: might need to quantify the volume in distribution model

@@ -1,3 +1,48 @@
+
+# SPC MBR Forecast Perf plot ----------------------------------------------
+# get first day of 12months ago
+first_month_in_scope <- floor_date(add_with_rollback(today(),months(-12), roll_to_first = TRUE), "month")
+scope_start_date <- first_month_in_scope
+
+SPC_last12_perf_full <- df_extended %>% 
+  filter(GBU == "SPC", Date >= scope_start_date, MAPE_ExcludeRuptures == "No Impact") %>% 
+  mutate(geo_scope = "All") %>% 
+  mutate(abs_err = abs(Final_fcst - Vol)) %>%
+  group_by(geo_scope, Date) %>% 
+  summarise(Vol = sum(Vol), abs_err = sum(abs_err)) %>% 
+  mutate(WAPE = abs_err/Vol) %>% 
+  mutate(Vol = Vol) # replace by Vol = 0 if want to remove the point size
+
+SPC_last12_perf_details <- df_extended %>% 
+  filter(GBU == "SPC", Date >= scope_start_date, MAPE_ExcludeRuptures == "No Impact") %>% 
+  mutate(geo_scope = case_when(
+    Country == "United States" ~ "US",
+    # Country %in% c("Germany", "France", "United Kingdom", "Italy", "Spain") ~ "EU5",
+    # Country %in% c("China", "Japan", "Russia", "Brazil") ~ "Other top10",
+    TRUE ~ "RoW"
+  )) %>% 
+  mutate(abs_err = abs(Final_fcst - Vol)) %>%
+  group_by(geo_scope, Date) %>% 
+  summarise(Vol = sum(Vol), abs_err = sum(abs_err)) %>% 
+  mutate(WAPE = abs_err/Vol)
+
+SPC_last12_perf <- rbind(SPC_last12_perf_details, SPC_last12_perf_full)
+
+SPC_last12_perf %>% ggplot(x = Date, y = WAPE) +
+  geom_point(aes(x = Date, y = WAPE, col = geo_scope, size = Vol), alpha = .3) +
+  geom_line(aes(x = Date, y = WAPE, col = geo_scope), alpha = .3) +
+  geom_hline(yintercept = .19, col = "#7A00E6", linetype = "dashed") +
+  theme_minimal() +
+  scale_color_manual(name="Scope",
+                     values = c("US"="#7A00E6", 
+                                "RoW"="#ED6C4E", 
+                                "All"  ="grey60")) +
+  sanofi_style()
+  
+
+# other ----------------------------------------------
+
+
 # in percentage
 sku_mape_volume <- df_extended %>% 
   filter(GBU == "GEM") %>% 
@@ -83,7 +128,7 @@ source("san_style.R")
 
 vol_plot <- ggplot(top_40_sku, aes(x = as.numeric(row.names(top_40_sku)), y = Vol_cumul )) +
   geom_line(colour = "#333333", size = 2) +
-  geom_hline(yintercept = 0, size = 1, colour="#333333") +
+  geom_hline(yintercept = 0, linewidth = 1, colour="#333333") +
   #top 20%
   annotate("rect", xmin = 0, xmax = 8, ymin = 0, ymax = 0.193, fill = "#23004C", alpha = .8) +
   geom_label(aes(x = 1000, y = .1, label = "8 SKUs"), 
